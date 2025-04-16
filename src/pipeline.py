@@ -1,3 +1,5 @@
+import torch
+import torch_npu
 import argparse
 import os
 import re
@@ -8,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 import shlex
 import paths
+import subprocess
 
 
 def merge_args(base_args, new_args):
@@ -19,37 +22,30 @@ def merge_args(base_args, new_args):
 
     return list(base_dict.values())
 
-
 def get_avail_devices(devices, requires_memory=None):
-    if not hasattr(get_avail_devices, "cached_requires_memory"):
-        if requires_memory is None:
-            raise ValueError("requires_memory must be provided on the first call.")
-        get_avail_devices.cached_requires_memory = requires_memory
-
-    effective_requires_memory = (
-        requires_memory
-        if requires_memory is not None
-        else get_avail_devices.cached_requires_memory
-    )
-
+    # use npu-smi to get information about available devices
     result = subprocess.run(
-        ["nvidia-smi", "--query-gpu=memory.free", "--format=csv,noheader,nounits"],
+        ["npu-smi", "info", "-l"],  
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
     )
-    free_memory = result.stdout.strip().split("\n")
-    free_gpus = [
-        str(idx)
-        for idx, mem in enumerate(free_memory)
-        if int(mem) > effective_requires_memory
-    ]
+    if result.returncode != 0:
+        raise RuntimeError(f"Failed to run npu-smi: {result.stderr.strip()}")
+
+    lines = result.stdout.strip().split("\n")
+    available_devices = []
+
+    for line in lines:
+        if "NPU ID" in line:
+            npu_id = line.split(":")[1].strip()
+            available_devices.append(npu_id)
 
     if devices:
-        return ",".join(set(devices.split(",")) & set(free_gpus))
-    else:
-        return ",".join(free_gpus)
+        device_list = devices.split(",")
+        available_devices = [dev for dev in device_list if dev in available_devices]
 
+    return ",".join(available_devices)
 
 def run_train(
     runname,
@@ -78,7 +74,7 @@ def run_train(
             ),
             env={
                 **os.environ,
-                "CUDA_VISIBLE_DEVICES": get_avail_devices(devices),
+                "ASCEND_RT_VISIBLE_DEVICES": get_avail_devices(devices),
             },
             stdout=sys.stdout,
             stderr=sys.stderr,
@@ -99,7 +95,7 @@ def run_train(
 
 
 def run_eval(
-    ckpt_path, dataset, num_query_sample, num_shot, model_name, gpu_id, eval_args
+    ckpt_path, dataset, num_query_sample, num_shot, model_name, npu_id, eval_args
 ):
     try:
         process = subprocess.Popen(
@@ -114,7 +110,7 @@ def run_eval(
                 ],
                 shlex.split(eval_args),
             ),
-            env={**os.environ, "CUDA_VISIBLE_DEVICES": gpu_id},
+            env={**os.environ, "ASCEND_RT_VISIBLE_DEVICES": npu_id},
             stdout=sys.stdout,
             stderr=sys.stderr,
             text=True,
@@ -126,7 +122,7 @@ def run_eval(
             if process.stderr and "out of memory" in process.stderr:
                 return dataset, num_query_sample, num_shot
             print(
-                f"Evaluation failed on GPU {gpu_id} for runname: {ckpt_path}, dataset: {dataset}"
+                f"Evaluation failed on npu {npu_id} for runname: {ckpt_path}, dataset: {dataset}"
             )
         else:
             return True
@@ -165,66 +161,71 @@ def run_analyze(runname, dataset, num_query_sample, num_shot, model_name, analyz
         )
         sys.exit(1)
 
-
 def execute_eval(runname, tasks, model_name, eval_args, devices):
     task_queue = tasks.copy()
-    futures = {}
+    futures = {}  
 
-    def get_gpu_id():
-        available_gpus = [
-            gpu_id
-            for gpu_id in get_avail_devices(devices).split(",")
-            if gpu_id not in futures
+    def get_npu_id():
+        nonlocal futures  
+
+        available_npus = [
+            npu_id
+            for npu_id in get_avail_devices(devices).split(",")
+            if npu_id not in futures or futures[npu_id].done()
         ]
-        if not available_gpus:
-            # no available GPUs, wait for tasks to finish
-            next(as_completed(futures.values())).result()
-            available_gpus = [gpu_id for gpu_id, f in futures.items() if f.done()]
-            futures = {gpu_id: f for gpu_id, f in futures.items() if not f.done()}
 
-        return available_gpus.pop(0)
+        if not available_npus:
+            next(as_completed(futures.values())).result()
+            futures = {npu_id: f for npu_id, f in futures.items() if not f.done()}
+            available_npus = [
+                npu_id
+                for npu_id in get_avail_devices(devices).split(",")
+                if npu_id not in futures
+            ]
+
+        return available_npus[0]
 
     with ThreadPoolExecutor() as executor:
-
         while task_queue or futures:
-            dataset, num_query_sample, num_shot = task_queue.pop(0)
-            if "icl" in runname:
-                # runname-model-dataset
-                expand_runname = f"{runname}-{model_name}-{dataset}"
-                gpu_id = get_gpu_id()
-                print(
-                    f"Assigning task to GPU {gpu_id}: {dataset=}, {num_query_sample=}, {num_shot=}, ICL"
-                )
-                futures[gpu_id] = executor.submit(
-                    run_eval,
-                    None,
-                    dataset,
-                    num_query_sample,
-                    num_shot,
-                    model_name,
-                    gpu_id,
-                    eval_args,
-                )
-            else:
-                # runname-model-dataset-training_samples-num_shot
-                expand_runname = f"{runname}-{model_name}-{dataset}-{num_query_sample}-{num_shot}shot"
-                ckpt_dir = os.path.join(paths.result_dir, "ckpt", expand_runname)
-                for epoch_ckpt in os.listdir(ckpt_dir):
-                    epoch = re.findall(r"\d+", epoch_ckpt)[0]
-                    gpu_id = get_gpu_id()
+            if task_queue:
+                dataset, num_query_sample, num_shot = task_queue.pop(0)
+                if "icl" in runname:
+                    # runname-model-dataset
+                    expand_runname = f"{runname}-{model_name}-{dataset}"
+                    npu_id = get_npu_id()
                     print(
-                        f"Assigning task to GPU {gpu_id}: {dataset=}, {num_query_sample=}, {num_shot=}, {epoch=}"
+                        f"Assigning task to npu {npu_id}: {dataset=}, {num_query_sample=}, {num_shot=}, ICL"
                     )
-                    futures[gpu_id] = executor.submit(
+                    futures[npu_id] = executor.submit(
                         run_eval,
-                        os.path.join(ckpt_dir, epoch_ckpt),
+                        None,
                         dataset,
                         num_query_sample,
                         num_shot,
                         model_name,
-                        gpu_id,
+                        npu_id,
                         eval_args,
                     )
+                else:
+                    # runname-model-dataset-training_samples-num_shot
+                    expand_runname = f"{runname}-{model_name}-{dataset}-{num_query_sample}-{num_shot}shot"
+                    ckpt_dir = os.path.join(paths.result_dir, "ckpt", expand_runname)
+                    for epoch_ckpt in os.listdir(ckpt_dir):
+                        epoch = re.findall(r"\d+", epoch_ckpt)[0]
+                        npu_id = get_npu_id()
+                        print(
+                            f"Assigning task to npu {npu_id}: {dataset=}, {num_query_sample=}, {num_shot=}, {epoch=}"
+                        )
+                        futures[npu_id] = executor.submit(
+                            run_eval,
+                            os.path.join(ckpt_dir, epoch_ckpt),
+                            dataset,
+                            num_query_sample,
+                            num_shot,
+                            model_name,
+                            npu_id,
+                            eval_args,
+                        )
 
 
 def main():
@@ -281,13 +282,13 @@ def main():
         "--wait-devices-timeout",
         type=int,
         default=0,
-        help="Maximum time in minutes to wait for free GPUs. If <= 0, exit immediately if no adequate GPUs are available.",
+        help="Maximum time in minutes to wait for free npus. If <= 0, exit immediately if no adequate npus are available.",
     )
     parser.add_argument(
         "--requires_memory",
         type=int,
         default=20000,
-        help="The minimal cuda memory used to run train or eval, unit MB.",
+        help="The minimal npu memory used to run train or eval, unit MB.",
     )
     parser.add_argument(
         "--wait-n-devices",

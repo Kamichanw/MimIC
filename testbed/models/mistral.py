@@ -4,6 +4,8 @@ from transformers import (
 )
 
 from testbed.models.model_base import ModelBase
+import torch
+import torch_npu
 
 class Mistral(ModelBase):
     def __init__(

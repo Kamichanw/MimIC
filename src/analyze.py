@@ -1,3 +1,5 @@
+import torch
+import torch_npu
 import os
 import sys
 import json
@@ -16,8 +18,7 @@ def sort_runname_key(runname: str):
     # ...-{num_query_samples}-{num_shot}shot
     prefix, query_samples, shot = runname.rsplit("-", 2)
     return (prefix, int(query_samples), int(re.findall(r"\d+", shot)[0]))
-
-
+    
 @hydra.main(config_path="config", config_name="analyze.yaml", version_base=None)
 def main(cfg: DictConfig):
     verbose = cfg.verbose
@@ -74,19 +75,25 @@ def main(cfg: DictConfig):
         else:
             if verbose:
                 print(f"No record directory found for {full_runname}", file=sys.stderr)
-
+        
         if ckpt_dir:
             if os.path.isdir(ckpt_dir):
                 for epoch_ckpt in os.listdir(ckpt_dir):
                     if epoch_ckpt not in meta_info:
                         # There is a checkpoint without a corresponding record
-                        missing_epoch = int(re.findall(r"\d+", epoch_ckpt)[0])
-                        missing_records.setdefault(full_runname, []).append(
-                            missing_epoch
-                        )
+                        matches = re.findall(r"\d+", epoch_ckpt)
+                        if matches:
+                            missing_epoch = int(matches[0])
+                            missing_records.setdefault(full_runname, []).append(missing_epoch)
+                        else:
+                            print(
+                                colored(f"{full_runname:<40}", "blue"),
+                                f"| Found non-epoch checkpoint file: {epoch_ckpt}",
+                                file=sys.stderr,
+                            )
             else:
                 print(
-                    colored(f"{full_runname:<40}", "light_blue"),
+                    colored(f"{full_runname:<40}", "blue"),
                     "| Cannot find any checkpoints",
                     file=sys.stderr,
                 )
@@ -101,7 +108,7 @@ def main(cfg: DictConfig):
             summary[full_runname] = topk_meta_info
 
             print(
-                colored(f"{full_runname:<40}", "light_blue"),
+                colored(f"{full_runname:<40}", "blue"),
                 f"| Top {min(topk, len(topk_meta_info))} records:",
             )
             for i, (epoch, metric) in enumerate(topk_meta_info):
@@ -109,9 +116,8 @@ def main(cfg: DictConfig):
                 print(f"  {i+1}. Epoch: {epoch} (Metric: {metric})")
         else:
             print(
-                colored(f"{full_runname:<40}", "light_blue"),
-                f"| Cannot find any records",
-                file=sys.stderr,
+                colored(f"{full_runname:<40} | Cannot find any records", "blue"),
+                file=sys.stderr
             )
 
     if verbose:

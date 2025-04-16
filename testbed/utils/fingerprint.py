@@ -3,6 +3,8 @@ from typing import Any, Callable, List, Optional, Union, Dict
 
 import xxhash
 import dill
+import torch
+import torch_npu
 
 
 class Hasher:

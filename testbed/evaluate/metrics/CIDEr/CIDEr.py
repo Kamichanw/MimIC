@@ -4,6 +4,8 @@ import evaluate
 import os
 import tempfile
 import subprocess
+import torch
+import torch_npu
 
 from pycocoevalcap.cider.cider import CiderScorer
 

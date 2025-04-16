@@ -1,3 +1,5 @@
+import torch
+import torch_npu
 import json
 from pathlib import Path
 from typing import Dict, List

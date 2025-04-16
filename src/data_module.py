@@ -1,12 +1,12 @@
+import torch
+import torch_npu
 import pytorch_lightning as pl
 from PIL import ImageFile
 from dataset_utils import dataset_mapping, DatasetBase
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-
 class DataModule(pl.LightningDataModule):
-
     def __init__(self, cfg, lmm) -> None:
         super().__init__()
         self.cfg = cfg
@@ -20,5 +20,7 @@ class DataModule(pl.LightningDataModule):
 
     def train_dataloader(self):
         return self.dataset.train_dataloader(
-            self.lmm, self.cfg.batch_size, distributed=self.trainer.world_size > 1
+            self.lmm, 
+            self.cfg.batch_size,
+            distributed=self.trainer.world_size > 1
         )

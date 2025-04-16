@@ -1,6 +1,7 @@
 from typing import List, Union
 from testbed.data.common import register_dataset_retriever, register_postprocess
-
+import torch
+import torch_npu
 
 @register_dataset_retriever(__name__.split(".")[-1])
 def retriever(item, is_last: bool):

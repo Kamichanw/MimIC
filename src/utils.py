@@ -1,4 +1,7 @@
 from contextlib import nullcontext
+import torch
+import torch_npu
+
 import os
 import torch
 import torch.nn as nn

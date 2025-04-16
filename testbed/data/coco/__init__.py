@@ -1,4 +1,7 @@
 from typing import List, Union
+import torch
+import torch_npu
+
 from testbed.data.common import register_dataset_retriever, register_postprocess
 
 

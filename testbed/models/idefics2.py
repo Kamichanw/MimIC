@@ -4,6 +4,8 @@ from transformers import (
 )
 
 from testbed.models.model_base import ModelBase
+import torch
+import torch_npu
 
 HF_IDEFICS2 = ["idefics2-8b", "idefics2-8b-base", "idefics2-8b-chatty"]
 

@@ -1,4 +1,7 @@
 from functools import wraps
+import torch
+import torch_npu
+
 import re
 from typing import Any, Callable, Dict, List, Optional, Sized, Tuple, Union
 import inspect

@@ -11,6 +11,8 @@ from functools import partial, wraps
 from bytecode import Bytecode, Instr
 
 from testbed.utils import clone_to_device
+import torch
+import torch_npu
 
 __all__ = ["ForwardTracker", "GradTracker", "LocalsTracker"]
 

@@ -1,3 +1,5 @@
+import torch
+import torch_npu
 import enum
 from functools import reduce
 import json

@@ -1,5 +1,5 @@
 name: "licv"
 ce_loss_weight: 0.5
 align_loss_weight: 1
-lr: 5e-3
-scale_lr: 1e-2
+lr: 5e-5
+scale_lr: 1e-3

@@ -1,3 +1,5 @@
+import torch
+import torch_npu
 import enum
 from functools import partial
 from typing import List, Callable, Dict, Optional, Tuple, Union
@@ -337,7 +339,7 @@ def idefics_attn_forward(
 
     # SDPA with memory-efficient backend is currently (torch==2.1.2) bugged with non-contiguous inputs with custom attn_mask,
     # Reference: https://github.com/pytorch/pytorch/issues/112577.
-    if query_states.device.type == "cuda" and attention_mask is not None:
+    if query_states.device.type == "npu" and attention_mask is not None:
         query_states = query_states.contiguous()
         key_states = key_states.contiguous()
         value_states = value_states.contiguous()
@@ -437,7 +439,7 @@ def idefics2_attn_forward(
 
     # SDPA with memory-efficient backend is currently (torch==2.1.2) bugged with non-contiguous inputs with custom attn_mask,
     # Reference: https://github.com/pytorch/pytorch/issues/112577.
-    if query_states.device.type == "cuda" and causal_mask is not None:
+    if query_states.device.type == "npu" and causal_mask is not None:
         query_states = query_states.contiguous()
         key_states = key_states.contiguous()
         value_states = value_states.contiguous()

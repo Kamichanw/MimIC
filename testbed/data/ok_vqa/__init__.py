@@ -9,6 +9,9 @@
 # singularized by our inflection.singularize.
 from functools import lru_cache
 import nltk
+import torch
+import torch_npu
+
 from nltk.corpus.reader import VERB
 import inflection
 from testbed.data.common import register_dataset_retriever, register_postprocess

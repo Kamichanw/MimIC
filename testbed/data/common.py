@@ -4,6 +4,9 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 import warnings
 import datasets
+import torch
+import torch_npu
+
 
 DATASET_RETRIEVER_MAPPING: Dict[str, Callable] = {}
 POSTPROCESS_MAPPING: Dict[str, Callable] = {}

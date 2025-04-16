@@ -15,7 +15,8 @@ import torch.nn as nn
 
 from ..utils.tracker import TrackerBase
 from ..utils import try_inject_params
-
+import torch
+import torch_npu
 
 class ModelBase(nn.Module, ABC):
     def __init__(

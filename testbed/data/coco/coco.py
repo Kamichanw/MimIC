@@ -1,4 +1,7 @@
 import json
+import torch
+import torch_npu
+
 from pathlib import Path
 
 import datasets

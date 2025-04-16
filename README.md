@@ -2,7 +2,7 @@
 
 <p align="center">
 <a href="">
-<img alt="Static Badge" src="https://img.shields.io/badge/arXiv-coming soon-red"></a>
+<img alt="Static Badge" src="https://img.shields.io/badge/arXiv-2504.08851-red"></a>
 </p>
 
 <img src="./assets/overview.png" alt="overview figure" style="display: block; margin: 0 auto; width: 90%;" />
@@ -58,3 +58,8 @@ This could be a kinda complicate.
 3. Global search `idefics` in `shift_model.py` and implement corresponding methods.
 4. Determine how many epochs to run and when to save in `src/train.py`.
 
+# Compare with GPU version
+1. Replace all `.to('cuda')` to `.to('npu')`, `CUDA_VISIBLE_DEVICES` to `ASCEND_RT_VISIBLE_DEVICES`.
+2. Import `torch_npu` after importing `torch`. 
+3. Change training precision from `16-mixed` (in [training config](src/config/train.yaml)) to `32-true` to avoid loss to be `nan`.
+4. Change `get_avail_devices` in `src/pipeline.py`  to NPU version.

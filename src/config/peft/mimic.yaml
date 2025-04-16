@@ -1,4 +1,4 @@
 name: "mimic"
 ce_loss_weight: 0.5
 align_loss_weight: 1
-lr: 5e-3
+lr: 1e-5

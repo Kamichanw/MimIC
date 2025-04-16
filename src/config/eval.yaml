@@ -7,7 +7,7 @@ query_set: ${data.name}
 query_set_size: null # the number of samples to evaluate. if set to null, all samples will be evaluated.
 support_set: ${data.name}
 ckpt_path: null
-batch_size: 16
+batch_size: 4
 iterations: null
 max_skip_oom: 0 # skip out-of-memory samples
 generation_args:

@@ -1,5 +1,3 @@
-#!/bin/bash
-
 runname=$(basename "$0" .sh | sed 's/^run_//' | sed 's/_/-/g')
 
 cd ../src/

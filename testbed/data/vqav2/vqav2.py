@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 from typing import Dict, List
 import datasets
+import torch
+import torch_npu
 
 from testbed.data.common import split_generators, most_common_from_dict
 

@@ -1,3 +1,5 @@
+import torch
+import torch_npu
 import os
 import importlib.util
 import inspect

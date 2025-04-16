@@ -11,7 +11,7 @@ batch_size: 2
 epochs: null # int or null. if null, decide by train.py
 ce_loss_weight: ${peft.ce_loss_weight}
 align_loss_weight: ${peft.align_loss_weight}
-strategy: deepspeed_stage_2_offload  # Options: "deepspeed_stage_2_offload" / "ddp"
-accumulate_grad_batches: 2
-grad_clip_val: 1.0
-precision: 16-mixed
+strategy: auto  # Options: "deepspeed_stage_2_offload" / "ddp"
+accumulate_grad_batches: 4
+grad_clip_val: 1
+precision: 32-true

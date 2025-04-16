@@ -1,3 +1,5 @@
+import torch
+import torch_npu
 import logging
 import os
 import PIL

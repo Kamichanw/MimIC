@@ -2,6 +2,8 @@ from typing import Any, Dict, List
 import datasets
 import evaluate
 import re
+import torch
+import torch_npu
 
 _DESCRIPTION = """
 VQA accuracy is a evaluation metric which is robust to inter-human variability in phrasing the answers:

@@ -1,3 +1,5 @@
+import torch
+import torch_npu
 import json
 import torch
 import os
@@ -46,7 +48,7 @@ def main(cfg: DictConfig):
             return
 
     # load model and inference
-    device = torch.device("cuda")
+    device = torch.device("npu")
     model = build_model(cfg).to(device, eval(cfg.dtype))
 
     if not is_icl:

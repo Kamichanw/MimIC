@@ -9,6 +9,8 @@ from transformers import (
 )
 
 from .model_base import ModelBase
+import torch
+import torch_npu
 
 
 class Qwen2(ModelBase):
