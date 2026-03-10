@@ -1,29 +1,39 @@
 import json
-import torch
 import os
 import re
-import evaluate
-import hydra
+import sys
 from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+import torch
+import hydra
+from accelerate import Accelerator
+from accelerate.utils import gather_object
+from dotenv import load_dotenv
 from omegaconf import DictConfig, OmegaConf
 from PIL import ImageFile
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-import paths
-from utils import *
-from dataset_utils import dataset_mapping, DatasetBase
+from src.utils.common import get_expand_runname, load_from_pretrained
+from src.utils.dataset_utils import dataset_mapping, DatasetBase
+from src.utils.modeling import build_model
+from src.utils.common import resolve_path
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
-@hydra.main(config_path="config", config_name="eval.yaml", version_base=None)
+@hydra.main(config_path="../configs", config_name="eval.yaml", version_base=None)
 def main(cfg: DictConfig):
-    # initialize dataset and variables
+    results_dir = resolve_path(os.environ.get("RESULTS_DIR", "results"))
+    accelerator = Accelerator()
     runname = get_expand_runname(cfg)
     is_icl = cfg.data.is_icl = cfg.ckpt_path is None
     dataset: DatasetBase = dataset_mapping[cfg.data.name](cfg.data)
-    record_dir = os.path.join(paths.result_dir, "record", runname)
+    record_dir = os.path.join(results_dir, "record", runname)
     if is_icl:
         record_path = os.path.join(record_dir, f"{cfg.data.num_shot}shot.json")
     else:
@@ -40,17 +50,15 @@ def main(cfg: DictConfig):
 
     os.makedirs(record_dir, exist_ok=True)
 
-    if cfg.resume:
-        if os.path.exists(record_path):
+    if cfg.resume and os.path.exists(record_path):
+        if accelerator.is_main_process:
             print(f"Found exist record {record_path}, skip...")
-            return
+        return
 
-    # load model and inference
-    device = torch.device("cuda")
+    device = accelerator.device
     model = build_model(cfg).to(device, eval(cfg.dtype))
 
     if not is_icl:
-        # load peft/mimic etc.
         encoder = hydra.utils.instantiate(cfg.encoder.cls, lmm=model).to(
             device, eval(cfg.dtype)
         )
@@ -62,26 +70,50 @@ def main(cfg: DictConfig):
 
     model.eval()
 
-    Path(record_path).touch()
-    try:
-        result, eval_result = dataset.eval(cfg, model)
-        print(f"Evaluation result for {runname}: {eval_result}")
-        config = {"eval_args": OmegaConf.to_container(cfg, resolve=True)}
-        if os.path.exists(os.path.join(record_dir, "config.json")):
-            with open(os.path.join(record_dir, "config.json")) as f:
-                config["train_args"] = json.load(f)
+    if accelerator.is_main_process:
+        Path(record_path).touch()
 
-        evaluate.save(
-            record_path,
-            **config,
-            eval_result=eval_result,
-            records=result,
-        )
+    try:
+        local_records = dataset.eval(cfg, model, accelerator=accelerator)
+        gathered_records = gather_object(local_records)
+        accelerator.wait_for_everyone()
+
+        if accelerator.is_main_process:
+            if gathered_records and isinstance(gathered_records[0], list):
+                result = [
+                    record
+                    for worker_records in gathered_records
+                    for record in worker_records
+                ]
+            else:
+                result = list(gathered_records)
+            eval_result = dataset.compute_metrics(result)
+            print(f"Evaluation result for {runname}: {eval_result}")
+            config = {"eval_args": OmegaConf.to_container(cfg, resolve=True)}
+            if os.path.exists(os.path.join(record_dir, "config.json")):
+                with open(os.path.join(record_dir, "config.json")) as f:
+                    config["train_args"] = json.load(f)
+
+            with open(record_path, "w") as f:
+                json.dump(
+                    {
+                        **config,
+                        "eval_result": eval_result,
+                        "records": result,
+                    },
+                    f,
+                    ensure_ascii=False,
+                )
 
     finally:
-        if os.path.exists(record_path) and os.path.getsize(record_path) == 0:
+        if (
+            accelerator.is_main_process
+            and os.path.exists(record_path)
+            and os.path.getsize(record_path) == 0
+        ):
             os.remove(record_path)
 
 
 if __name__ == "__main__":
+    load_dotenv(ROOT_DIR / ".env")
     main()

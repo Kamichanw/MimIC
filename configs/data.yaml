@@ -1,0 +1,9 @@
+
+data:
+  is_icl: False # only automatically set in eval.py
+  seed: 3407
+  num_query_samples: 500
+  name: "vqav2"
+  num_shot: 32
+  num_workers: 5
+  num_image_in_query: 1 # how many images in query input?

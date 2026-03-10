@@ -2,12 +2,10 @@ import enum
 from functools import reduce
 import json
 import os
-import sys
+from pathlib import Path
 
 from omegaconf import OmegaConf
 
-sys.path.insert(0, "..")
-import paths
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
@@ -15,7 +13,7 @@ import torch.optim as optim
 from deepspeed.ops.adam import DeepSpeedCPUAdam
 from transformers import get_cosine_schedule_with_warmup
 
-from utils import save_pretrained, get_expand_runname
+from src.utils.common import get_expand_runname, resolve_path, save_pretrained
 
 
 class Strategy(enum.IntFlag):
@@ -70,7 +68,8 @@ class ShiftModel(pl.LightningModule):
             if save_checkpoint_when is not None
             else lambda epoch: epoch == self.trainer.max_epochs - 1
         )
-        self.save_dir = os.path.join(paths.result_dir, "ckpt", get_expand_runname(cfg))
+        results_dir = resolve_path(os.environ.get("RESULTS_DIR", "results"))
+        self.save_dir = os.path.join(results_dir, "ckpt", get_expand_runname(cfg))
 
     def generate_label_mask(self, inputs, num_separator, keep_bos=False):
         """

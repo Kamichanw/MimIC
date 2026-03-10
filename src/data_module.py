@@ -1,6 +1,6 @@
 import pytorch_lightning as pl
 from PIL import ImageFile
-from dataset_utils import dataset_mapping, DatasetBase
+from src.utils.dataset_utils import dataset_mapping, DatasetBase
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 

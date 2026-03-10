@@ -1,0 +1,16 @@
+defaults:
+  - _self_
+  - exp_settings
+
+resume: True
+query_set: ${data.name}
+query_set_size: null # the number of samples to evaluate. if set to null, all samples will be evaluated.
+support_set: ${data.name}
+ckpt_path: null
+batch_size: 16
+iterations: null
+max_skip_oom: 0 # skip out-of-memory samples
+generation_args:
+  num_beams: 3
+  max_new_tokens: 10
+  length_penalty: 0.0

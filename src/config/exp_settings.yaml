@@ -1,9 +1,0 @@
-defaults:
-  - _self_
-  - encoder: mimic # see src/config/encoder
-  - peft: ${encoder} # see src/config/peft
-  - data
-  
-model_name: null
-
-dtype: torch.float16

@@ -1,10 +1,16 @@
 import os
+import sys
+from pathlib import Path
 
-import paths
-from data_module import DataModule
-from shift_model import ShiftModel, Strategy
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from src.data_module import DataModule
+from src.shift_model import ShiftModel, Strategy
 import pytorch_lightning as pl
 import torch
+from dotenv import load_dotenv
 from pytorch_lightning.callbacks import (
     LearningRateMonitor,
     RichProgressBar,
@@ -13,13 +19,17 @@ from pytorch_lightning.loggers.wandb import WandbLogger
 from termcolor import colored
 import hydra
 from omegaconf import DictConfig
-from utils import *
+from src.utils.common import get_expand_runname
+from src.utils.modeling import build_model, convert_to_peft
+from src.utils.common import resolve_path
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
-@hydra.main(config_path="config", config_name="train.yaml", version_base=None)
+@hydra.main(config_path="../configs", config_name="train.yaml", version_base=None)
 def main(cfg: DictConfig):
+    results_dir = resolve_path(os.environ.get("RESULTS_DIR", "results"))
+
     def get_max_epochs():
         num_query_samples = cfg.data.num_query_samples
         model_name = cfg.model_name
@@ -65,27 +75,28 @@ def main(cfg: DictConfig):
             return True
 
     max_epochs = cfg.epochs if cfg.epochs else get_max_epochs()
+    max_epochs_value = int(max_epochs or 0)
     runname = get_expand_runname(cfg)
     print(colored(f"Training for {runname} on {cfg.model_name}", "light_blue"))
 
     if cfg.resume:
-        save_dir = os.path.join(paths.result_dir, "ckpt", runname)
+        save_dir = os.path.join(results_dir, "ckpt", runname)
         os.makedirs(save_dir, exist_ok=True)
         exist_ckpt_epochs = [
             int(d.split("-")[-1])
             for d in os.listdir(save_dir)
             if os.path.exists(os.path.join(save_dir, d))
         ]
-        for i in range(max_epochs):
+        for i in range(max_epochs_value):
             if save_when(i) and i not in exist_ckpt_epochs:
                 break
         else:
             print(f"All checkpoints {runname} matched, skip...")
             return
     pl.seed_everything(cfg.data.seed)
-    os.makedirs(paths.result_dir, exist_ok=True)
+    os.makedirs(results_dir, exist_ok=True)
     wb_logger = WandbLogger(
-        save_dir=paths.result_dir,
+        save_dir=results_dir,
         name=runname,
         project="VQAInContextVector",
         log_model=False,
@@ -128,4 +139,5 @@ def main(cfg: DictConfig):
 
 
 if __name__ == "__main__":
+    load_dotenv(ROOT_DIR / ".env")
     main()

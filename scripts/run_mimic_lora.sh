@@ -2,9 +2,9 @@
 
 runname=$(basename "$0" .sh | sed 's/^run_//')
 
-cd ../src/
+cd "$(dirname "$0")/.."
 
-python pipeline.py \
+python scripts/pipeline.py \
     -r "$runname-r-1" \
     -d vqav2,ok_vqa,coco \
     -m idefics-9b \

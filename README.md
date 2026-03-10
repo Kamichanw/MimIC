@@ -17,14 +17,14 @@ The following command can help you build the environment for testing idefics1 an
 conda create -y -n mimic python=3.10
 pip install -r requirements.txt
 ```
-### 2. Specify the root path of your models and datasets in `src/paths.py`
-For models, we currently support idefics1, idefics2 and llava-next-interleave. For datasets, VQAv2, OK-VQA, COCO, flickr30k, MME and SEED-bench are available.
+### 2. Configure paths in `.env`
+Copy `.env.example` to `.env`, then fill in the dataset and model paths you actually use. Relative paths are resolved from the repository root.
 
 ## How to Run
 ```bash
-cd ./script
-# select a bash file to run
-bash run_*.sh 
+cd .
+# select a launcher in scripts/
+bash scripts/run_*.sh 
 ```
 
 ## Code Reading Guides
@@ -43,18 +43,18 @@ We firstly feed in-context demonstrations and query to model to capture hidden s
 
 ## Customization
 ### Customize new datasets
-0. You may need to add your dataset path to `src/paths.py` firstly.
+0. Add the new dataset path to `.env.example` and your local `.env` if needed.
 1. Create a new python script in `src/dataset_utils`.
-2. Create a new class named `Dataset` and inherits from `src.dataset_utils.iterface.DatasetBase`.
+2. Create a new class named `Dataset` and inherit from `src.dataset_utils.interface.DatasetBase`.
 3. Implement all abstract methods and some special required attributes (see docstring of `DatasetBase`).
 
 Then you are able to use `-d` option to specify new dataset in `run_*` bash scripts.
 
 ### Customize new model
 This could be a kinda complicate.
-0. You may need to add your model path to `src/paths.py` firstly.
-1. Create your new model in `testbed/models`, following ICLTestbed guides [here](https://github.com/Kamichanw/ICLTestbed/blob/main/docs/How-to%20guides.md).
-2. Specify the method of loading the model in `build_models` from `src/utils.py`.
+0. Add the new model path to `.env.example` and your local `.env` if needed.
+1. Create your new model wrapper in `src/models`.
+2. Specify the loading method in `build_model()` from `src/utils.py`.
 3. Global search `idefics` in `shift_model.py` and implement corresponding methods.
 4. Determine how many epochs to run and when to save in `src/train.py`.
 

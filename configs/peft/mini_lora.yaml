@@ -1,0 +1,20 @@
+name: "lora"
+ce_loss_weight: 1
+align_loss_weight: 0
+lr: 5e-4
+r: 16
+lora_dropout: 0.05
+
+idefics-9b:
+  task_type: CAUSAL_LM
+  r: ${..r}
+  target_modules: model\.layers\.\d+\.self_attn\.o_proj$
+  lora_alpha: ${eval:'${..r} * 2'}
+  lora_dropout: ${..lora_dropout}
+
+idefics2-8b-base:
+  task_type: CAUSAL_LM
+  r: ${..r}
+  target_modules: model\.text_model\.layers\.\d+\.self_attn\.o_proj$
+  lora_alpha: ${eval:'${..r} * 2'}
+  lora_dropout: ${..lora_dropout}
