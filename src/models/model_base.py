@@ -6,7 +6,8 @@ import inspect
 import os
 import re
 from types import MethodType
-from typing import Any, Callable, Dict, List, Optional, Union, cast
+from collections.abc import Callable
+from typing import Any, cast
 import warnings
 
 import torch
@@ -23,7 +24,7 @@ class ModelBase(nn.Module, ABC):
         model_root: str,
         processor_class: type,
         model_class: type,
-        support_models: Optional[List[str]] = None,
+        support_models: list[str] | None = None,
         processor_args=None,
         model_args=None,
         **common_args,
@@ -85,7 +86,7 @@ class ModelBase(nn.Module, ABC):
                 f"module_name should be str or list of str, but got {type(module_name).__name__}"
             )
 
-    def add_tracker(self, module_name: Union[str, List[str]], tracker: TrackerBase):
+    def add_tracker(self, module_name: str | list[str], tracker: TrackerBase):
         if isinstance(module_name, str):
             matched_modules = {
                 name: module
@@ -180,11 +181,9 @@ class ModelBase(nn.Module, ABC):
 
     def process_input(
         self,
-        images: Union[List[Image], List[List[Image]]],
-        text: Union[
-            List[Union[str, Dict[str, Any]]], List[List[Union[str, Dict[str, Any]]]]
-        ],
-        prompt_template: Optional[str] = None,
+        images: list[Image] | list[list[Image]],
+        text: list[str | dict[str, Any]] | list[list[str | dict[str, Any]]],
+        prompt_template: str | None = None,
         **kwargs,
     ):
         if isinstance(text[0], dict) or (
@@ -204,7 +203,7 @@ class ModelBase(nn.Module, ABC):
     def generate(
         self,
         *inputs,
-        processor_args: Optional[Dict[str, Any]] = None,
+        processor_args: dict[str, Any] | None = None,
         return_inputs: bool = False,
         return_generated_ids: bool = False,
         **generate_args,
@@ -235,7 +234,7 @@ class ModelBase(nn.Module, ABC):
     def forward(
         self,
         *processor_input,
-        processor_args: Optional[Dict[str, Any]] = None,
+        processor_args: dict[str, Any] | None = None,
         **kwargs,
     ):
         processor_args = processor_args if processor_args else dict()
@@ -244,8 +243,8 @@ class ModelBase(nn.Module, ABC):
 
     def apply_prompt_template(
         self,
-        conversation: Union[List[Dict[str, Any]], List[List[Dict[str, Any]]]],
-        prompt_template: Optional[str] = None,
+        conversation: list[dict[str, Any]] | list[list[dict[str, Any]]],
+        prompt_template: str | None = None,
         tokenize=False,
         **kwargs,
     ):
@@ -360,7 +359,7 @@ class ModelBase(nn.Module, ABC):
 
     def replace_module_method(
         self,
-        module_name_or_type: Union[str, List[str], nn.Module],
+        module_name_or_type: str | list[str] | nn.Module,
         method_name: str,
         new_method: Callable,
         *,

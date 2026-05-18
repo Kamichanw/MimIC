@@ -1,4 +1,5 @@
-from typing import Iterable, Iterator, List, Optional, Protocol, cast
+from collections.abc import Iterable, Iterator
+from typing import Protocol, cast
 
 from torch.utils.data.sampler import Sampler
 
@@ -7,11 +8,11 @@ class _SizedSampler(Protocol):
     def __len__(self) -> int: ...
 
 
-class ConcatSampler(Sampler[List[int]]):
+class ConcatSampler(Sampler[list[int]]):
     def __init__(
         self,
         samplers: Iterable[Sampler],
-        cumulative_dataset_sizes: Optional[List[int]] = None,
+        cumulative_dataset_sizes: list[int] | None = None,
     ):
         self.samplers = list(samplers)
         sample_indices = [next(iter(sampler)) for sampler in self.samplers]
@@ -24,12 +25,12 @@ class ConcatSampler(Sampler[List[int]]):
             else [0] * len(self.samplers)
         )
 
-    def __iter__(self) -> Iterator[List[int]]:
+    def __iter__(self) -> Iterator[list[int]]:
         sampler_iters = [iter(sampler) for sampler in self.samplers]
         while True:
             try:
                 sample_indices = [next(it) for it in sampler_iters]
-                batch: List[int] = []
+                batch: list[int] = []
                 for i, mini in enumerate(sample_indices):
                     if isinstance(mini, list):
                         batch.extend(idx + self.cumulative_indices[i] for idx in mini)
@@ -44,9 +45,9 @@ class ConcatSampler(Sampler[List[int]]):
         return min(len(cast(_SizedSampler, sampler)) for sampler in self.samplers)
 
 
-class MultiBatchSampler(Sampler[List[int]]):
+class MultiBatchSampler(Sampler[list[int]]):
     def __init__(
-        self, sampler: Sampler[List[int]], multi_merge_size: int, drop_last: bool
+        self, sampler: Sampler[list[int]], multi_merge_size: int, drop_last: bool
     ) -> None:
         if (
             not isinstance(multi_merge_size, int)
@@ -70,7 +71,7 @@ class MultiBatchSampler(Sampler[List[int]]):
         self.merge_size = multi_merge_size
         self.drop_last = drop_last
 
-    def __iter__(self) -> Iterator[List[int]]:
+    def __iter__(self) -> Iterator[list[int]]:
         if self.drop_last:
             sampler_iter = iter(self.sampler)
             while True:

@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, cast
 import transformers
 from packaging import version
 from PIL.Image import Image
@@ -77,11 +77,9 @@ class Idefics(ModelBase):
 
     def process_input(
         self,
-        images: Union[List[Image], List[List[Image]]],
-        text: Union[
-            List[Union[str, Dict[str, Any]]], List[List[Union[str, Dict[str, Any]]]]
-        ],
-        prompt_template: Optional[str] = None,
+        images: list[Image] | list[list[Image]],
+        text: list[str | dict[str, Any]] | list[list[str | dict[str, Any]]],
+        prompt_template: str | None = None,
         **kwargs,
     ):
         if isinstance(text, str) or (
@@ -97,7 +95,7 @@ class Idefics(ModelBase):
         inputs = []
         for i, (ctx, image_list) in enumerate(zip(text, images)):
             text_parts = ctx.split("<image>")  # type: ignore[union-attr]
-            image_list = cast(List[Image], image_list)
+            image_list = cast(list[Image], image_list)
 
             if len(text_parts) - 1 != len(image_list):
                 raise ValueError(

@@ -3,15 +3,29 @@ defaults:
   - exp_settings
 
 runname: "default"
-resume: True
-lr: ${peft.lr}
-weight_decay: 1e-3
-warmup_step: 0.1
-batch_size: 2
-epochs: null # int or null. if null, decide by train.py
 ce_loss_weight: ${peft.ce_loss_weight}
 align_loss_weight: ${peft.align_loss_weight}
-strategy: deepspeed_stage_2_offload  # Options: "deepspeed_stage_2_offload" / "ddp"
-accumulate_grad_batches: 2
-grad_clip_val: 1.0
-precision: 16-mixed
+
+training_args:
+  _target_: transformers.TrainingArguments
+  output_dir: null
+  overwrite_output_dir: True
+  do_train: True
+  report_to: ["wandb"]
+  run_name: null
+  num_train_epochs: null # null keeps the paper's dataset/model-based default.
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 2
+  learning_rate: ${peft.lr}
+  weight_decay: 1e-3
+  lr_scheduler_type: cosine
+  warmup_ratio: 0.1
+  max_grad_norm: 1.0
+  logging_steps: 2
+  save_strategy: epoch
+  save_total_limit: null
+  remove_unused_columns: False
+  dataloader_pin_memory: True
+  fp16: True
+  bf16: False
+  optim: adamw_torch

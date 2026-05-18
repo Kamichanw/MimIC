@@ -8,7 +8,7 @@ from .interface import DatasetBase
 dataset_mapping = {}
 
 for filename in os.listdir(os.path.dirname(__file__)):
-    if filename.endswith(".py") and filename not in ["interface.py", "__init__.py", "ok_vqa_stemmer.py"]:
+    if filename.endswith(".py") and filename not in ["interface.py", "__init__.py"]:
         module_name = filename[:-3]
         module = importlib.import_module(f".{module_name}", package=__name__)
 

@@ -1,6 +1,6 @@
 import inspect
-import re
-from typing import Any, Callable, Dict, List, Optional, Union, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 from torch.utils.data import (
     BatchSampler,
@@ -14,20 +14,18 @@ from torch.utils.data import (
 
 from .common import (
     DATASET_RETRIEVER_MAPPING,
-    POSTPROCESS_MAPPING,
     register_dataset_retriever,
-    register_postprocess,
 )
 from .sampler import ConcatSampler, MultiBatchSampler
 
 
-IndexBatch = Union[int, List[int]]
+IndexBatch = int | list[int]
 
 
 def prepare_input(
-    dataset_name: Union[str, List[str]],
-    batch: List[List[Dict[str, Any]]],
-    instruction: Optional[str] = None,
+    dataset_name: str | list[str],
+    batch: list[list[dict[str, Any]]],
+    instruction: str | None = None,
 ):
     if isinstance(dataset_name, str):
         dataset_name = [dataset_name] * len(batch)
@@ -95,40 +93,13 @@ def prepare_input(
     return batch_context
 
 
-def postprocess_generation(
-    dataset_name: str,
-    predictions: Union[str, List[str]],
-    stop_words: Optional[List[str]] = None,
-):
-    is_batched = True
-    if isinstance(predictions, str):
-        predictions = [predictions]
-        is_batched = False
-
-    def preprocess(pred: str, stop_words: Optional[List[str]]):
-        if stop_words is not None:
-            pred = re.split(r"|".join(re.escape(word) for word in stop_words), pred, 1)[0]
-        return pred.strip()
-
-    if dataset_name not in POSTPROCESS_MAPPING:
-        raise ValueError(
-            f"The post process method of {dataset_name} is not registered, use `register_postprocess` first."
-        )
-    result = [
-        POSTPROCESS_MAPPING[dataset_name](preprocess(pred, stop_words))
-        for pred in predictions
-    ]
-
-    return result if is_batched else result[0]
-
-
 def prepare_dataloader(
-    datasets: Union[Dataset, List[Dataset]],
+    datasets: Dataset | list[Dataset],
     batch_size: int,
-    num_shots: Optional[int] = None,
-    num_per_dataset: Optional[Union[int, List[int]]] = None,
-    collate_fn: Optional[Callable[[List[List[Any]]], Any]] = None,
-    samplers: Optional[Union[Sampler[IndexBatch], List[Sampler[IndexBatch]]]] = None,
+    num_shots: int | None = None,
+    num_per_dataset: int | list[int] | None = None,
+    collate_fn: Callable[[list[list[Any]]], Any] | None = None,
+    samplers: Sampler[IndexBatch] | list[Sampler[IndexBatch]] | None = None,
     **kwargs,
 ) -> DataLoader:
     drop_last = kwargs.pop("drop_last", False)
@@ -141,9 +112,9 @@ def prepare_dataloader(
 
     def batchilize_sampler(
         dataset: Dataset,
-        sampler: Optional[Sampler[IndexBatch]],
+        sampler: Sampler[IndexBatch] | None,
         minibatch_size: int,
-    ) -> Sampler[List[int]]:
+    ) -> Sampler[list[int]]:
         if sampler is None:
             sampler = cast(
                 Sampler[IndexBatch],
@@ -152,7 +123,7 @@ def prepare_dataloader(
         sample_idx = next(iter(sampler))
         if isinstance(sample_idx, int):
             return cast(
-                Sampler[List[int]],
+                Sampler[list[int]],
                 BatchSampler(cast(Sampler[int], sampler), minibatch_size, True),
             )
         if (
@@ -160,7 +131,7 @@ def prepare_dataloader(
             and all(isinstance(idx, int) for idx in sample_idx)
             and len(sample_idx) == minibatch_size
         ):
-            return cast(Sampler[List[int]], sampler)
+            return cast(Sampler[list[int]], sampler)
         raise ValueError(
             f"Unable to get correct index from sampler {sampler}, it should yield an int or list of int of length {minibatch_size}."
         )
@@ -176,7 +147,7 @@ def prepare_dataloader(
             return collate_fn(batch_list)
         return batch_list
 
-    def check_consistent(name, obj, default_value) -> List[Any]:
+    def check_consistent(name, obj, default_value) -> list[Any]:
         old_value = obj
         if obj is None:
             obj = default_value
@@ -229,7 +200,5 @@ def prepare_dataloader(
 __all__ = [
     "prepare_dataloader",
     "prepare_input",
-    "postprocess_generation",
     "register_dataset_retriever",
-    "register_postprocess",
 ]

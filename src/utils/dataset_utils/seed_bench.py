@@ -1,17 +1,11 @@
 import os
-import random
 from typing import Any, cast
 
-import evaluate
-from datasets import DatasetDict, load_dataset
+from datasets import load_dataset
 
-from src.utils.common import ROOT_DIR, get_expand_runname, resolve_path
+from src.utils.common import ROOT_DIR, resolve_path
 from src.utils.dataset_utils.interface import DatasetBase
-from src.utils.icl import (
-    postprocess_generation,
-    register_dataset_retriever,
-    register_postprocess,
-)
+from src.utils.icl import register_dataset_retriever
 
 HF_DATASETS_DIR = str(ROOT_DIR / "src" / "hf_datasets")
 
@@ -49,11 +43,6 @@ def retriever(item, is_last: bool):
     )
 
 
-@register_postprocess("seed_bench")
-def postprocess(text):
-    return text
-
-
 class Dataset(DatasetBase):
     support_datasets = ["seed_bench"]
 
@@ -76,17 +65,11 @@ class Dataset(DatasetBase):
         ).train_test_split(  # type: ignore[arg-type]
             train_size=data_cfg.num_query_samples, seed=data_cfg.seed, shuffle=False
         )
-        dataset = cast(DatasetDict, dataset)
         self._support_set = dataset["train"]
-        self._query_set = dataset["test"]
 
     @property
     def num_role_in_round(self):
         return 4
-
-    @staticmethod
-    def metric_key():
-        return "exact_match"
 
     def extract_answer(self, item):
         return item["answer"]
@@ -94,53 +77,3 @@ class Dataset(DatasetBase):
     @property
     def instruction(self):
         return None
-
-    def eval(self, eval_cfg, model, accelerator=None):
-        result = []
-        eval_dl = self.validation_dataloader(eval_cfg.batch_size)
-        iterations = eval_cfg.iterations or len(eval_dl)
-        for batch in self.iter_eval_batches(
-            eval_dl,
-            iterations,
-            model.model_name,
-            get_expand_runname(eval_cfg),
-            accelerator,
-        ):
-            predictions = self.get_prediction(
-                model,
-                batch,
-                max_skip_oom=eval_cfg.max_skip_oom,
-                **eval_cfg.generation_args,
-            )
-            if predictions is None:
-                continue
-
-            for pred, context in zip(predictions, batch):
-                last_qa = context[-1]
-                prediction = postprocess_generation(
-                    self.name, pred, stop_words=["\n", "."]
-                )
-                prediction = cast(str, prediction)
-                if prediction.upper() not in ["A", "B", "C", "D"]:
-                    prediction = random.choice(["A", "B", "C", "D"])
-                result.append(
-                    {
-                        "question": last_qa["question"],
-                        "question_id": last_qa["question_id"],
-                        "raw_output": pred,
-                        "choice_a": last_qa["choice_a"],
-                        "choice_b": last_qa["choice_b"],
-                        "choice_c": last_qa["choice_c"],
-                        "choice_d": last_qa["choice_d"],
-                        "prediction": prediction,
-                        "answer": last_qa["answer"],
-                    }
-                )
-
-        return result
-
-    def compute_metrics(self, records):
-        metric = evaluate.load("exact_match")
-        for record in records:
-            metric.add(prediction=record["prediction"], reference=record["answer"])
-        return metric.compute()

@@ -3,8 +3,9 @@ import torch.nn as nn
 import weakref
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any
 from types import FunctionType, MethodType
 from torch.utils.hooks import RemovableHandle
 from functools import partial, wraps
@@ -17,20 +18,20 @@ __all__ = ["ForwardTracker", "GradTracker", "LocalsTracker"]
 
 @dataclass
 class ModuleStatus:
-    module_name: Optional[str]
-    accessed: Optional[bool]
+    module_name: str | None
+    accessed: bool | None
 
 
 class TrackerBase(ABC):
     def __init__(
-        self, data_props: List[str], on_device: Union[bool, str, torch.device]
+        self, data_props: list[str], on_device: bool | str | torch.device
     ):
         super().__init__()
         self._auto_incre_index: bool = True
-        self._data: Dict[str, List[List]] = {key: [] for key in data_props}
+        self._data: dict[str, list[list]] = {key: [] for key in data_props}
 
         if isinstance(on_device, bool):
-            self.to_device: Optional[Union[str, torch.device]] = (
+            self.to_device: str | torch.device | None = (
                 "cpu" if on_device is False else None
             )
         else:
@@ -108,8 +109,8 @@ class TrackerBase(ABC):
 
     def track(
         self,
-        modules: List[nn.Module],
-        trackers_dict: Dict[int, "TrackerBase"],
+        modules: list[nn.Module],
+        trackers_dict: dict[int, "TrackerBase"],
         extra_dict=None,
     ):
         if not isinstance(modules, list) or not isinstance(modules[0], nn.Module):
@@ -131,7 +132,7 @@ class TrackerBase(ABC):
         self._myhandle = RemovableHandle(trackers_dict, extra_dict=extra_dict)
 
     @property
-    def id(self) -> Optional[int]:
+    def id(self) -> int | None:
         return self._myhandle.id if hasattr(self, "_myhandle") else None
 
     def clear(self):
@@ -158,10 +159,10 @@ class TrackerBase(ABC):
 
 
 class ForwardTracker(TrackerBase):
-    def __init__(self, on_device: Union[bool, str, torch.device] = False):
+    def __init__(self, on_device: bool | str | torch.device = False):
         super().__init__(["inputs", "outputs"], on_device=on_device)
-        self.inputs: Optional[List[List]]
-        self.outputs: Optional[List[List]]
+        self.inputs: list[list] | None
+        self.outputs: list[list] | None
 
     def _register_tracker(self, module: nn.Module) -> RemovableHandle:
         @self._hook_wrapper
@@ -181,10 +182,10 @@ class ForwardTracker(TrackerBase):
 
 
 class GradTracker(TrackerBase):
-    def __init__(self, on_device: Union[bool, str, torch.device] = False):
+    def __init__(self, on_device: bool | str | torch.device = False):
         super().__init__(["grad_inputs", "grad_outputs"], on_device=on_device)
-        self.grad_inputs: Optional[List[List]]
-        self.grad_outputs: Optional[List[List]]
+        self.grad_inputs: list[list] | None
+        self.grad_outputs: list[list] | None
 
     def _register_tracker(self, module: nn.Module) -> RemovableHandle:
         @self._hook_wrapper
@@ -217,8 +218,8 @@ class LocalsTracker(TrackerBase):
     def __init__(
         self,
         method_name: str,
-        varnames: List[str],
-        on_device: Union[bool, str, torch.device] = False,
+        varnames: list[str],
+        on_device: bool | str | torch.device = False,
     ):
         super().__init__([], on_device=on_device)
         self._data = {key: [] for key in varnames}

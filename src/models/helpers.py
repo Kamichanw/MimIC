@@ -1,5 +1,5 @@
 import inspect
-from typing import Any, Union
+from typing import Any
 import torch
 import copy
 from collections.abc import Mapping, Sequence
@@ -28,7 +28,7 @@ def try_inject_params(fn, **kwargs):
 
 def clone_to_device(
     obj: Any,
-    device: Union[str, torch.device] = "cpu",
+    device: str | torch.device = "cpu",
     check_cycles: bool = False,
     max_recur_depth: int = 1,
 ):

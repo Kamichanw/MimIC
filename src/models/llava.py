@@ -1,6 +1,6 @@
 from functools import lru_cache
 import itertools
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 from PIL.Image import Image
 import warnings
 from transformers import (
@@ -129,11 +129,9 @@ class LLaVa(ModelBase):
 
     def process_input(
         self,
-        images: Union[List[Image], List[List[Image]]],
-        text: Union[
-            List[Union[str, Dict[str, Any]]], List[List[Union[str, Dict[str, Any]]]]
-        ],
-        prompt_template: Optional[str] = None,
+        images: list[Image] | list[list[Image]],
+        text: list[str | dict[str, Any]] | list[list[str | dict[str, Any]]],
+        prompt_template: str | None = None,
         **kwargs,
     ):
         if isinstance(text[0], dict) or (

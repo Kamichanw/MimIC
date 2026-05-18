@@ -2,15 +2,28 @@ defaults:
   - _self_
   - exp_settings
 
-resume: True
-query_set: ${data.name}
-query_set_size: null # the number of samples to evaluate. if set to null, all samples will be evaluated.
-support_set: ${data.name}
 ckpt_path: null
-batch_size: 16
-iterations: null
-max_skip_oom: 0 # skip out-of-memory samples
-generation_args:
-  num_beams: 3
-  max_new_tokens: 10
-  length_penalty: 0.0
+
+lmms_eval:
+  model: null
+  model_args: null
+  tasks: ${data.name}
+  batch_size: 1
+  num_fewshot: ${data.num_shot}
+  output_path: ${oc.env:RESULTS_DIR,results}/record
+  log_samples: True
+  gen_kwargs: "temperature=0,max_new_tokens=10"
+  limit: null
+  env:
+    HF_HOME: ${oc.env:HF_HOME,}
+    HF_DATASETS_CACHE: ${oc.env:HF_DATASETS_CACHE,}
+    COCO_DIR: ${oc.env:COCO_DIR,}
+    VQAV2_DIR: ${oc.env:VQAV2_DIR,}
+    OK_VQA_DIR: ${oc.env:OK_VQA_DIR,}
+    SEED_DIR: ${oc.env:SEED_DIR,}
+    MME_DIR: ${oc.env:MME_DIR,}
+    KARPATHY_COCO_CAPTION_DIR: ${oc.env:KARPATHY_COCO_CAPTION_DIR,}
+    FLICKR30K_DIR: ${oc.env:FLICKR30K_DIR,}
+    FLICKR30K_IMAGES_DIR: ${oc.env:FLICKR30K_IMAGES_DIR,}
+    OCR_VQA_DIR: ${oc.env:OCR_VQA_DIR,}
+    OCR_VQA_IMAGES_DIR: ${oc.env:OCR_VQA_IMAGES_DIR,}

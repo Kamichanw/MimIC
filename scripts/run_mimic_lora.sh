@@ -1,14 +1,62 @@
 #!/bin/bash
-
-runname=$(basename "$0" .sh | sed 's/^run_//')
+set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-python scripts/pipeline.py \
-    -r "$runname-r-1" \
-    -d vqav2,ok_vqa,coco \
-    -m idefics-9b \
-    -q 1000 \
-    -s 32 \
-    --train-args "encoder=mimic peft=mini_lora training.ce_loss_weight=0.5 peft.r=1 training.lr=5e-3" \
-    --eval-args "encoder=mimic peft=mini_lora peft.r=1"
+# Edit this block to change the run.
+MODE=train
+CUDA_VISIBLE_DEVICES="0"
+DATASETS=(vqav2 ok_vqa coco)
+EVAL_DATASET="vqav2"
+MODEL_NAME="idefics-9b"
+NUM_QUERY_SAMPLES=1000
+NUM_SHOT=32
+CKPT_PATH=""
+
+runname=$(basename "$0" .sh | sed 's/^run_//')
+export CUDA_VISIBLE_DEVICES
+IFS=',' read -ra devices <<< "$CUDA_VISIBLE_DEVICES"
+launch_args=(--num_processes "${#devices[@]}")
+if (( ${#devices[@]} > 1 )); then
+    launch_args+=(--multi_gpu)
+fi
+train_config=configs/accelerate/zero2.yaml
+eval_config=configs/accelerate/single_gpu.yaml
+if (( ${#devices[@]} > 1 )); then
+    eval_config=configs/accelerate/multi_gpu.yaml
+fi
+
+case "$MODE" in
+    train)
+        for dataset in "${DATASETS[@]}"; do
+            accelerate launch --config_file "$train_config" "${launch_args[@]}" train.py \
+                runname="$runname-r-1" \
+                model_name="$MODEL_NAME" \
+                data.name="$dataset" \
+                data.num_query_samples="$NUM_QUERY_SAMPLES" \
+                data.num_shot="$NUM_SHOT" \
+                encoder=mimic \
+                peft=mini_lora \
+                peft.r=1 \
+                training_args.learning_rate=5e-3
+        done
+        ;;
+    eval)
+        if [[ -z "$CKPT_PATH" ]]; then
+            echo "Set CKPT_PATH in scripts/run_mimic_lora.sh for eval."
+            exit 1
+        fi
+        accelerate launch --config_file "$eval_config" "${launch_args[@]}" eval.py \
+            ckpt_path="$CKPT_PATH" \
+            model_name="$MODEL_NAME" \
+            lmms_eval.tasks="$EVAL_DATASET" \
+            data.num_shot="$NUM_SHOT" \
+            encoder=mimic \
+            peft=mini_lora \
+            peft.r=1
+        ;;
+    *)
+        echo "Set MODE to train or eval in scripts/run_mimic_lora.sh."
+        exit 1
+        ;;
+esac
