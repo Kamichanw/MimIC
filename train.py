@@ -9,15 +9,33 @@ if str(ROOT_DIR) not in sys.path:
 import hydra
 from dotenv import load_dotenv
 from omegaconf import DictConfig
+from transformers import set_seed
 
-from src.trainer import MimicTrainer
+from src.trainer import MimicTrainer, Strategy
+from src.utils.dataset_utils import dataset_mapping
+from src.utils.modeling import build_model, convert_to_peft
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
 @hydra.main(config_path="configs", config_name="train.yaml", version_base=None)
 def main(cfg: DictConfig):
-    trainer = MimicTrainer.from_config(cfg)
+    set_seed(cfg.data.seed)
+
+    lmm = build_model(cfg)
+    convert_to_peft(cfg, lmm)
+    shift_encoder = hydra.utils.instantiate(cfg.encoder.cls, _partial_=True)(lmm=lmm)
+    data_module = dataset_mapping[cfg.data.name](cfg.data)
+    training_args = hydra.utils.instantiate(cfg.training_args)
+
+    trainer = MimicTrainer(
+        cfg=cfg,
+        lmm=lmm,
+        strategy=eval(cfg.encoder.model_strategy),
+        model=shift_encoder,
+        args=training_args,
+        train_dataset=data_module,
+    )
     trainer.train()
 
 

@@ -2,18 +2,16 @@ defaults:
   - _self_
   - exp_settings
 
-runname: "default"
 ce_loss_weight: ${peft.ce_loss_weight}
 align_loss_weight: ${peft.align_loss_weight}
 
 training_args:
   _target_: transformers.TrainingArguments
-  output_dir: null
+  output_dir: ${hydra:runtime.output_dir}
   overwrite_output_dir: True
   do_train: True
   report_to: ["wandb"]
-  run_name: null
-  num_train_epochs: null # null keeps the paper's dataset/model-based default.
+  num_train_epochs: 10
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 2
   learning_rate: ${peft.lr}

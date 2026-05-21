@@ -2,7 +2,6 @@ from omegaconf import OmegaConf
 
 from .common import (
     ROOT_DIR,
-    get_expand_runname,
     load_from_pretrained,
     register_dataset_retriever,
     resolve_path,
@@ -27,7 +26,6 @@ __all__ = [
     "NullPeftModel",
     "build_model",
     "convert_to_peft",
-    "get_expand_runname",
     "load_from_pretrained",
     "save_pretrained",
 ]

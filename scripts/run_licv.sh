@@ -12,7 +12,6 @@ NUM_QUERY_SAMPLES=1000
 NUM_SHOT=32
 CKPT_PATH=""
 
-runname=$(basename "$0" .sh | sed 's/^run_//' | sed 's/_/-/g')
 export CUDA_VISIBLE_DEVICES
 IFS=',' read -ra devices <<< "$CUDA_VISIBLE_DEVICES"
 launch_args=(--num_processes "${#devices[@]}")
@@ -28,7 +27,6 @@ fi
 case "$MODE" in
     train)
         accelerate launch --config_file "$train_config" "${launch_args[@]}" train.py \
-            runname="$runname" \
             model_name="$MODEL_NAME" \
             data.name="$DATASET" \
             data.num_query_samples="$NUM_QUERY_SAMPLES" \

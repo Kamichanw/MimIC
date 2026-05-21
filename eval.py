@@ -10,6 +10,7 @@ from lmms_eval.tasks import TaskManager
 from lmms_eval.utils import get_datetime_str, make_table
 from omegaconf import DictConfig, OmegaConf
 
+import src.lmms_eval_model  # noqa: F401
 from src.utils.common import resolve_path
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -17,23 +18,23 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 def default_model_args(cfg: DictConfig) -> tuple[str, str] | tuple[None, None]:
     model_env = {
-        "idefics-9b": ("idefics", "IDEFICS_9B_PATH"),
-        "idefics2-8b-base": ("idefics2", "IDEFICS2_8B_BASE_PATH"),
-        "llava-interleave-7b": ("llava", "LLAVA_INTERLEAVE_7B_PATH"),
+        "idefics-9b": "IDEFICS_9B_PATH",
+        "idefics2-8b-base": "IDEFICS2_8B_BASE_PATH",
+        "llava-interleave-7b": "LLAVA_INTERLEAVE_7B_PATH",
     }
     if cfg.model_name not in model_env:
         return None, None
 
-    model, env_key = model_env[cfg.model_name]
+    env_key = model_env[cfg.model_name]
     if not os.environ.get(env_key):
         raise ValueError(
             f"Set {env_key} in .env or provide lmms_eval.model_args explicitly."
         )
     pretrained = resolve_path(os.environ[env_key])
-    model_args = f"pretrained={pretrained}"
+    model_args = f"model_name={cfg.model_name},pretrained={pretrained}"
     if cfg.ckpt_path:
         model_args += f",peft={resolve_path(cfg.ckpt_path)}"
-    return model, model_args
+    return "mimic", model_args
 
 
 def build_lmms_eval_config(cfg: DictConfig) -> dict[str, Any]:

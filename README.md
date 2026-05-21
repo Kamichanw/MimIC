@@ -23,12 +23,11 @@ Copy `.env.example` to `.env`, then fill in the dataset and model paths you actu
 ## How to Run
 ```bash
 cd .
-# train or evaluate through a preset launcher
-bash scripts/run_mimic.sh train
-CKPT_PATH=results/ckpt/... bash scripts/run_mimic.sh eval
+# edit MODE/CKPT_PATH inside the preset launcher, then run it
+bash scripts/run_mimic.sh
 
 # entrypoints can also be run directly
-accelerate launch --config_file configs/accelerate/zero2.yaml train.py runname=mimic model_name=idefics-9b data.name=vqav2 data.num_query_samples=1000 data.num_shot=16
+accelerate launch --config_file configs/accelerate/zero2.yaml train.py model_name=idefics-9b data.name=vqav2 data.num_query_samples=1000 data.num_shot=16
 accelerate launch --config_file configs/accelerate/single_gpu.yaml eval.py ckpt_path=results/ckpt/... model_name=idefics-9b lmms_eval.tasks=vqav2 data.num_shot=16
 ```
 
@@ -42,7 +41,7 @@ As we mentioned in paper, self-attention layers are substituted by MimIC attenti
 In `do_shift` of `AttnApproximator`, we implemented $f(\cdot)$ and $\boldsymbol{v}$ to approximate in-context demonstrations affected terms (Section 3.2).
 
 ### [`trainer.py`](./src/trainer.py)
-In this file, we implemented the MimIC training module illustrated in Figure 3. `MimicTrainer` prepares batches, wraps the loss model, and calculates losses depending on `model_strategy`. The `model_strategy` describes which types of losses should be calculated. For exmaple, MimIC uses `Strategy.LAYER_WISE_MSE` and `Strategy.LM_LOSS`, which stand for $L_{\text{align}}$ and $L_{\text{gt}}$ (Eq. 6), respectively. To train LIVE, `Strategy.LOGITS_KL_DIV` and `Strategy.LM_LOSS` are used. As to LoRA, only `Strategy.LM_LOSS` should be applied.
+In this file, we implemented the MimIC training module illustrated in Figure 3. `MimicTrainer` prepares batches and calculates losses depending on `model_strategy`. The `model_strategy` describes which types of losses should be calculated. For exmaple, MimIC uses `Strategy.LAYER_WISE_MSE` and `Strategy.LM_LOSS`, which stand for $L_{\text{align}}$ and $L_{\text{gt}}$ (Eq. 6), respectively. To train LIVE, `Strategy.LOGITS_KL_DIV` and `Strategy.LM_LOSS` are used. As to LoRA, only `Strategy.LM_LOSS` should be applied.
 
 We firstly feed in-context demonstrations and query to model to capture hidden states $H^\prime$  from all layers. This is achieved by [`forward_hook`](https://pytorch.org/docs/stable/generated/torch.nn.modules.module.register_module_forward_hook.html), please see `register_record_hook` in `shift_encoder.py` for details. Then, we enable `shift_hook` (introduced in previous section) only feed query to model to obtain shifted hidden states $H$. Finally, layer-wise alignment loss is computed with these hidden states.
 
@@ -61,7 +60,7 @@ This could be a kinda complicate.
 1. Create your new model wrapper in `src/models`.
 2. Specify the loading method in `build_model()` from `src/utils.py`.
 3. Global search `idefics` in `trainer.py` and implement corresponding methods.
-4. Determine how many epochs to run and when to save in `train.py`.
+4. Determine how many epochs to run and when to save in `configs/train.yaml`.
 
 # Recommended Citation
 ```

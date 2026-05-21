@@ -5,7 +5,6 @@ from pathlib import Path
 from collections.abc import Callable
 from typing import Any
 import torch
-from omegaconf import DictConfig
 from peft.peft_model import PeftModel
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
@@ -18,21 +17,6 @@ def resolve_path(value: str) -> str:
     if not path.is_absolute():
         path = ROOT_DIR / path
     return str(path.resolve())
-
-
-# Keep train/eval record names aligned when this format changes.
-def get_expand_runname(cfg: DictConfig):
-    """
-    Get the expanded runname based on the train or eval config.
-    """
-    if hasattr(cfg, "runname"):
-        if cfg.data.num_shot == 0:
-            return f"{cfg.runname}-{cfg.model_name}-{cfg.data.name}-{cfg.data.num_query_samples}"
-        return f"{cfg.runname}-{cfg.model_name}-{cfg.data.name}-{cfg.data.num_query_samples}-{cfg.data.num_shot}shot"
-
-    if getattr(cfg, "ckpt_path", None):
-        return os.path.basename(os.path.dirname(cfg.ckpt_path))
-    return f"icl-{cfg.model_name}-{cfg.data.name}"
 
 
 def save_pretrained(save_directory, lmm, encoder):

@@ -13,7 +13,6 @@ NUM_QUERY_SAMPLES=8000
 NUM_SHOT=0
 CKPT_PATH=""
 
-runname=$(basename "$0" .sh | sed 's/^run_//' | sed 's/_/-/g')
 export CUDA_VISIBLE_DEVICES
 IFS=',' read -ra devices <<< "$CUDA_VISIBLE_DEVICES"
 launch_args=(--num_processes "${#devices[@]}")
@@ -30,13 +29,13 @@ case "$MODE" in
     train)
         for dataset in "${DATASETS[@]}"; do
             accelerate launch --config_file "$train_config" "${launch_args[@]}" train.py \
-                runname="$runname-idev2-r-16" \
                 model_name="$MODEL_NAME" \
                 data.name="$dataset" \
                 data.num_query_samples="$NUM_QUERY_SAMPLES" \
                 data.num_shot="$NUM_SHOT" \
                 encoder=lora \
                 peft=lora \
+                training_args.num_train_epochs=5 \
                 training_args.per_device_train_batch_size=2 \
                 training_args.gradient_accumulation_steps=8
         done
