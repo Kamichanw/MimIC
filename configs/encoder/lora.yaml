@@ -1,0 +1,6 @@
+model_strategy: Strategy.LM_LOSS
+
+cls:
+  _target_: src.shift_encoder.AttnFFNShift
+  ffn_strategy: null
+  attn_strategy: null

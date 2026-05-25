@@ -1,6 +1,6 @@
 import enum
 from functools import partial
-from typing import List, Callable, Dict, Optional, Tuple, Union
+from collections.abc import Callable
 import torch
 from torch import nn
 import re
@@ -83,8 +83,8 @@ class BaseHookEncoder(nn.Module):
     def register_hooks(
         self,
         register_fn_name: str,
-        targets: List[Union[str, HookType]],
-        hooks: Dict[str, Callable],
+        targets: list[str | HookType],
+        hooks: dict[str, Callable],
     ):
         return {
             name: getattr(self.lmm, register_fn_name)(target, hook_fn)
@@ -100,6 +100,8 @@ class BaseHookEncoder(nn.Module):
             return r"model\.text_model\.layers\.\d+\.mlp$"
         elif "llava-interleave" in self.lmm.model_name:
             return r"language_model\.model\.layers\.\d+\.mlp$"
+        else:
+            raise ValueError(f"{self.lmm.model_name} is not supported")
 
     @property
     def decoder_self_attn_name(self) -> str:
@@ -109,6 +111,8 @@ class BaseHookEncoder(nn.Module):
             return r"model\.text_model\.layers\.\d+\.self_attn$"
         elif "llava-interleave" in self.lmm.model_name:
             return r"language_model\.model\.layers\.\d+\.self_attn$"
+        else:
+            raise ValueError(f"{self.lmm.model_name} is not supported")
 
     def register_record_hooks(self, **kwargs):
         # NOTE: record hooks should be registered AFTER all hooks
@@ -230,7 +234,7 @@ class AttnFFNShift(BaseHookEncoder):
             else:
                 hidden_states = outputs
 
-            if shift is not None:
+            if shift is not None and shift_scale is not None:
                 shift = shift[layer_idx][None, None, :]
                 shifted_states = hidden_states + shift_scale[layer_idx] * shift
                 hidden_states = (
@@ -367,9 +371,8 @@ def idefics_attn_forward(
     attn_output = attn_output.transpose(1, 2)
 
     # ------------------------- The following part is newly added ---------------------
-    layer_idx = int(re.findall(r"\d+", module_name)[0])
     attn_output = shift_encoder.do_shift(
-        layer_idx, query_states, key_states, attn_output
+        self.layer_idx, query_states, key_states, attn_output
     )
     # ---------------------------------------------------------------------------------
 
@@ -458,9 +461,8 @@ def idefics2_attn_forward(
     attn_output = attn_output.transpose(1, 2).contiguous()
 
     # ------------------------- The following part is newly added ---------------------
-    layer_idx = int(re.findall(r"\d+", module_name)[0])
     attn_output = shift_encoder.do_shift(
-        layer_idx, query_states, key_states, attn_output
+        self.layer_idx, query_states, key_states, attn_output
     )
     # ---------------------------------------------------------------------------------
 
@@ -475,14 +477,14 @@ def idefics2_attn_forward(
 def llava_attn_forward(
     self,
     hidden_states: torch.Tensor,
-    position_embeddings: Tuple[torch.Tensor, torch.Tensor],
-    attention_mask: Optional[torch.Tensor],
+    position_embeddings: tuple[torch.Tensor, torch.Tensor],
+    attention_mask: torch.Tensor | None,
     past_key_value=None,
-    cache_position: Optional[torch.LongTensor] = None,
+    cache_position: torch.LongTensor | None = None,
     module_name=None,
     shift_encoder=None,
     **kwargs,
-) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
+) -> tuple[torch.Tensor, torch.Tensor | None, tuple[torch.Tensor] | None]:
     input_shape = hidden_states.shape[:-1]
     hidden_shape = (*input_shape, -1, self.head_dim)
 
@@ -532,9 +534,8 @@ def llava_attn_forward(
     )
 
     # ------------------------- The following part is newly added ---------------------
-    layer_idx = int(re.findall(r"\d+", module_name)[0])
     attn_output = shift_encoder.do_shift(
-        layer_idx, query_states, key_states, attn_output
+        self.layer_idx, query_states, key_states, attn_output
     )
     # ---------------------------------------------------------------------------------
 
@@ -651,14 +652,12 @@ class AttnApproximator(BaseHookEncoder):
         if ShiftStrategy.VECTOR_SHIFT in self.ffn_strategy:
 
             def hook(m, inputs, outputs, module_name, **kwargs):
-                layer_idx = int(re.findall(r"\d+", module_name)[0])
-
                 if isinstance(outputs, tuple):
                     hidden_states, *rest = outputs
                 else:
                     hidden_states = outputs
 
-                shift = self.ffn_shift[layer_idx][None, None, :]
+                shift = self.ffn_shift[m.layer_idx][None, None, :]
                 shifted_states = hidden_states + shift
                 hidden_states = (
                     shifted_states
